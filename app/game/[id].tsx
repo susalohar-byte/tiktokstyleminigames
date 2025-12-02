@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, Pressable, ActivityIndicator, Share, Alert } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ActivityIndicator, Share, Alert, Platform } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { WebView } from 'react-native-webview';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -14,12 +14,21 @@ export default function GamePlayerScreen() {
   const { games, incrementPlayCount, toggleFavorite } = useGameStore();
   const [loading, setLoading] = useState(true);
   const [showMenu, setShowMenu] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [debugInfo, setDebugInfo] = useState<string>('');
 
   const game = games.find(g => g.id === id);
 
   useEffect(() => {
     if (game) {
       incrementPlayCount(game.id);
+      setDebugInfo(`Loading URL: ${game.game_url}`);
+      console.log('[GamePlayer] Game loaded:', {
+        id: game.id,
+        title: game.title,
+        url: game.game_url,
+        platform: Platform.OS,
+      });
     }
   }, [game?.id]);
 
@@ -27,9 +36,39 @@ export default function GamePlayerScreen() {
     return (
       <View style={styles.errorContainer}>
         <Text style={styles.errorText}>Game not found</Text>
+        <Pressable onPress={() => router.back()} style={styles.backButton}>
+          <Text style={styles.backButtonText}>Go Back</Text>
+        </Pressable>
       </View>
     );
   }
+
+  const handleWebViewError = (syntheticEvent: any) => {
+    const { nativeEvent } = syntheticEvent;
+    console.error('[GamePlayer] WebView error:', {
+      code: nativeEvent.code,
+      description: nativeEvent.description,
+      url: game.game_url,
+    });
+    setLoading(false);
+    setError(`Failed to load game: ${nativeEvent.description || 'Unknown error'}`);
+  };
+
+  const handleWebViewHttpError = (syntheticEvent: any) => {
+    const { nativeEvent } = syntheticEvent;
+    console.error('[GamePlayer] HTTP error:', {
+      statusCode: nativeEvent.statusCode,
+      description: nativeEvent.description,
+      url: nativeEvent.url,
+    });
+    setError(`HTTP Error ${nativeEvent.statusCode}: ${nativeEvent.description}`);
+  };
+
+  const handleRetry = () => {
+    setError(null);
+    setLoading(true);
+    console.log('[GamePlayer] Retrying game load:', game.game_url);
+  };
 
   const handleShare = async () => {
     try {
@@ -100,26 +139,62 @@ export default function GamePlayerScreen() {
       )}
 
       <View style={styles.webViewContainer}>
-        {loading && (
-          <View style={styles.loadingOverlay}>
-            <ActivityIndicator size="large" color="#8B5CF6" />
-            <Text style={styles.loadingText}>Loading {game.title}...</Text>
+        {error ? (
+          <View style={styles.errorOverlay}>
+            <Text style={styles.errorTitle}>Unable to Load Game</Text>
+            <Text style={styles.errorMessage}>{error}</Text>
+            <Text style={styles.debugText}>URL: {game.game_url}</Text>
+            <View style={styles.errorButtons}>
+              <Pressable onPress={handleRetry} style={styles.retryButton}>
+                <Text style={styles.retryButtonText}>Try Again</Text>
+              </Pressable>
+              <Pressable onPress={() => router.back()} style={styles.backButton}>
+                <Text style={styles.backButtonText}>Go Back</Text>
+              </Pressable>
+            </View>
           </View>
+        ) : (
+          <>
+            {loading && (
+              <View style={styles.loadingOverlay}>
+                <ActivityIndicator size="large" color="#8B5CF6" />
+                <Text style={styles.loadingText}>Loading {game.title}...</Text>
+                {__DEV__ && <Text style={styles.debugText}>{debugInfo}</Text>}
+              </View>
+            )}
+            <WebView
+              key={game.id}
+              source={{ uri: game.game_url }}
+              style={styles.webView}
+              onLoadStart={(syntheticEvent) => {
+                setLoading(true);
+                console.log('[GamePlayer] Load started:', syntheticEvent.nativeEvent.url);
+              }}
+              onLoadEnd={(syntheticEvent) => {
+                setLoading(false);
+                console.log('[GamePlayer] Load finished:', syntheticEvent.nativeEvent.url);
+              }}
+              onLoadProgress={({ nativeEvent }) => {
+                console.log('[GamePlayer] Load progress:', nativeEvent.progress);
+              }}
+              onError={handleWebViewError}
+              onHttpError={handleWebViewHttpError}
+              allowsInlineMediaPlayback
+              mediaPlaybackRequiresUserAction={false}
+              javaScriptEnabled
+              domStorageEnabled
+              startInLoadingState
+              scalesPageToFit
+              originWhitelist={['*']}
+              mixedContentMode="always"
+              allowFileAccess
+              allowUniversalAccessFromFileURLs
+              onMessage={(event) => {
+                console.log('[GamePlayer] Message from WebView:', event.nativeEvent.data);
+              }}
+            />
+          </>
         )}
-        <WebView
-          source={{ uri: game.game_url }}
-          style={styles.webView}
-          onLoadStart={() => setLoading(true)}
-          onLoadEnd={() => setLoading(false)}
-          onError={() => {
-            setLoading(false);
-            Alert.alert('Error', 'Failed to load game. Please try again.');
-          }}
-          allowsInlineMediaPlayback
-          mediaPlaybackRequiresUserAction={false}
-          javaScriptEnabled
-          domStorageEnabled
-        />
       </View>
     </SafeAreaView>
   );
@@ -216,5 +291,60 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     color: '#E2E8F0',
+  },
+  errorOverlay: {
+    flex: 1,
+    backgroundColor: '#0F172A',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+  errorTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#EF4444',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  errorMessage: {
+    fontSize: 16,
+    color: '#94A3B8',
+    marginBottom: 12,
+    textAlign: 'center',
+    lineHeight: 24,
+  },
+  debugText: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 8,
+    textAlign: 'center',
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  errorButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 24,
+  },
+  retryButton: {
+    backgroundColor: '#8B5CF6',
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderRadius: 12,
+  },
+  retryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  backButton: {
+    backgroundColor: '#1E293B',
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderRadius: 12,
+  },
+  backButtonText: {
+    color: '#E2E8F0',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
