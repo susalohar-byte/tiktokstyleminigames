@@ -526,6 +526,8 @@ class AdminApp {
         await this.saveCategory(new FormData(e.target));
       });
     }
+
+    this.setupDragAndDrop();
   }
 
   openGameModal(gameId = null) {
@@ -536,6 +538,18 @@ class AdminApp {
     form.reset();
     document.getElementById('game-form-error').classList.add('hidden');
     document.getElementById('game-form-success').classList.add('hidden');
+
+    this.selectedFile = null;
+    this.uploadProgress = 0;
+    this.uploadMode = 'url';
+
+    const uploadPlaceholder = document.getElementById('upload-placeholder');
+    const uploadInfo = document.getElementById('upload-info');
+    const progressContainer = document.getElementById('upload-progress-container');
+
+    if (uploadPlaceholder) uploadPlaceholder.classList.remove('hidden');
+    if (uploadInfo) uploadInfo.classList.add('hidden');
+    if (progressContainer) progressContainer.classList.add('hidden');
 
     if (gameId) {
       const game = this.games.find(g => g.id === gameId);
@@ -556,6 +570,7 @@ class AdminApp {
     }
 
     modal.classList.add('active');
+    setTimeout(() => this.setupDragAndDrop(), 100);
   }
 
   closeGameModal() {
@@ -576,6 +591,10 @@ class AdminApp {
     successDiv.classList.add('hidden');
 
     try {
+      if (this.uploadMode === 'upload' && !this.selectedFile && !formData.get('id')) {
+        throw new Error('Please select a file to upload or switch to URL mode');
+      }
+
       const gameData = {
         title: formData.get('title'),
         description: formData.get('description'),
@@ -831,6 +850,19 @@ class AdminApp {
     const file = event.target.files[0];
     if (!file) return;
 
+    const maxSize = 100 * 1024 * 1024;
+    if (file.size > maxSize) {
+      alert('File size exceeds 100MB limit. Please choose a smaller file.');
+      return;
+    }
+
+    const allowedTypes = ['.html', '.zip'];
+    const fileExtension = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
+    if (!allowedTypes.includes(fileExtension)) {
+      alert('Invalid file type. Please upload an HTML file or ZIP package.');
+      return;
+    }
+
     this.selectedFile = file;
 
     const fileSizeInMB = (file.size / (1024 * 1024)).toFixed(2);
@@ -841,31 +873,103 @@ class AdminApp {
     document.getElementById('file-size').textContent = `Size: ${fileSizeInMB} MB`;
   }
 
+  setupDragAndDrop() {
+    const uploadArea = document.getElementById('upload-area');
+    if (!uploadArea) return;
+
+    uploadArea.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      uploadArea.style.borderColor = '#8B5CF6';
+      uploadArea.style.background = 'rgba(139, 92, 246, 0.1)';
+    });
+
+    uploadArea.addEventListener('dragleave', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      uploadArea.style.borderColor = '#334155';
+      uploadArea.style.background = '#0F172A';
+    });
+
+    uploadArea.addEventListener('drop', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      uploadArea.style.borderColor = '#334155';
+      uploadArea.style.background = '#0F172A';
+
+      const files = e.dataTransfer.files;
+      if (files.length > 0) {
+        const fileInput = document.getElementById('game-file');
+        fileInput.files = files;
+        this.handleFileSelect({ target: fileInput });
+      }
+    });
+  }
+
   async uploadGameFile(file, gameId) {
     const fileName = `${gameId}/${file.name}`;
 
-    document.getElementById('upload-progress-container').classList.remove('hidden');
+    const progressContainer = document.getElementById('upload-progress-container');
+    const progressBar = document.getElementById('upload-progress-bar');
+    const progressPercentage = document.getElementById('upload-percentage');
 
-    const { data, error } = await supabase.storage
-      .from('game-files')
-      .upload(fileName, file, {
-        cacheControl: '3600',
-        upsert: true,
-        onUploadProgress: (progress) => {
-          const percentage = Math.round((progress.loaded / progress.total) * 100);
-          this.uploadProgress = percentage;
-          document.getElementById('upload-percentage').textContent = `${percentage}%`;
-          document.getElementById('upload-progress-bar').style.width = `${percentage}%`;
-        }
+    if (progressContainer) {
+      progressContainer.classList.remove('hidden');
+    }
+
+    try {
+      const session = await supabase.auth.getSession();
+      if (!session.data.session) {
+        throw new Error('You must be logged in to upload files. Please refresh and log in again.');
+      }
+
+      console.log('Starting upload:', {
+        fileName,
+        fileSize: file.size,
+        fileType: file.type,
+        gameId
       });
 
-    if (error) throw error;
+      let uploadedBytes = 0;
+      const totalBytes = file.size;
 
-    const { data: urlData } = supabase.storage
-      .from('game-files')
-      .getPublicUrl(fileName);
+      const { data, error } = await supabase.storage
+        .from('game-files')
+        .upload(fileName, file, {
+          cacheControl: '3600',
+          upsert: true,
+        });
 
-    return urlData.publicUrl;
+      if (progressBar && progressPercentage) {
+        progressPercentage.textContent = '100%';
+        progressBar.style.width = '100%';
+      }
+
+      if (error) {
+        console.error('Storage upload error:', error);
+        throw new Error(`Upload failed: ${error.message}`);
+      }
+
+      console.log('Upload successful:', data);
+
+      const { data: urlData } = supabase.storage
+        .from('game-files')
+        .getPublicUrl(fileName);
+
+      if (!urlData || !urlData.publicUrl) {
+        throw new Error('Failed to get public URL for uploaded file');
+      }
+
+      console.log('Public URL generated:', urlData.publicUrl);
+
+      return urlData.publicUrl;
+    } catch (error) {
+      console.error('Upload error:', error);
+      if (progressContainer) {
+        progressContainer.classList.add('hidden');
+      }
+      throw error;
+    }
   }
 }
 
