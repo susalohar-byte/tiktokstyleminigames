@@ -17,6 +17,8 @@ export default function TabLayout() {
         name="index"
         options={{
           title: 'Home',
+          href: '/',
+          tabBarStyle: { display: 'none' },
           tabBarIcon: ({ size, color }) => (
             <Home size={size} color={color} strokeWidth={2} />
           ),
@@ -26,6 +28,7 @@ export default function TabLayout() {
         name="explore"
         options={{
           title: 'Explore',
+          href: '/explore',
           tabBarIcon: ({ size, color }) => (
             <Compass size={size} color={color} strokeWidth={2} />
           ),
@@ -35,6 +38,7 @@ export default function TabLayout() {
         name="favorites"
         options={{
           title: 'Favorites',
+          href: '/favorites',
           tabBarIcon: ({ size, color }) => (
             <Heart size={size} color={color} strokeWidth={2} />
           ),
@@ -44,6 +48,7 @@ export default function TabLayout() {
         name="profile"
         options={{
           title: 'Profile',
+          href: '/profile',
           tabBarIcon: ({ size, color }) => (
             <User size={size} color={color} strokeWidth={2} />
           ),

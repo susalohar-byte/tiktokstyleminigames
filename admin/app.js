@@ -11,6 +11,8 @@ class AdminApp {
     this.currentUser = null;
     this.games = [];
     this.categories = [];
+    this.uploadMode = 'url';
+    this.uploadProgress = 0;
     this.init();
   }
 
@@ -357,9 +359,47 @@ class AdminApp {
             </div>
 
             <div class="form-group">
+              <label style="display: block; margin-bottom: 12px;">Game Source</label>
+              <div style="display: flex; gap: 12px; margin-bottom: 16px;">
+                <button type="button" class="btn-toggle ${this.uploadMode === 'url' ? 'active' : ''}" onclick="app.setUploadMode('url')">
+                  🔗 Enter URL
+                </button>
+                <button type="button" class="btn-toggle ${this.uploadMode === 'upload' ? 'active' : ''}" onclick="app.setUploadMode('upload')">
+                  📁 Upload HTML5 Game
+                </button>
+              </div>
+            </div>
+
+            <div id="url-input-group" class="form-group" style="display: ${this.uploadMode === 'url' ? 'block' : 'none'}">
               <label for="game-url">Game URL *</label>
-              <input type="url" id="game-url" name="game_url" required>
+              <input type="url" id="game-url" name="game_url" ${this.uploadMode === 'url' ? 'required' : ''}>
               <small style="color: #94A3B8; font-size: 14px;">Enter the URL where the game is hosted</small>
+            </div>
+
+            <div id="upload-input-group" class="form-group" style="display: ${this.uploadMode === 'upload' ? 'block' : 'none'}">
+              <label for="game-file">Upload HTML5 Game File *</label>
+              <div class="upload-area" id="upload-area">
+                <input type="file" id="game-file" accept=".html,.zip" style="display: none;" onchange="app.handleFileSelect(event)">
+                <div id="upload-placeholder" onclick="document.getElementById('game-file').click()">
+                  <div style="font-size: 48px; margin-bottom: 12px;">📤</div>
+                  <div style="font-weight: 600; margin-bottom: 8px;">Click to upload or drag and drop</div>
+                  <div style="font-size: 14px; color: #94A3B8;">HTML file or ZIP package (Max 100MB)</div>
+                </div>
+                <div id="upload-info" class="hidden">
+                  <div id="file-name" style="font-weight: 600; margin-bottom: 8px;"></div>
+                  <div id="file-size" style="font-size: 14px; color: #94A3B8;"></div>
+                </div>
+                <div id="upload-progress-container" class="hidden" style="margin-top: 16px;">
+                  <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                    <span style="font-size: 14px; font-weight: 600;">Uploading...</span>
+                    <span id="upload-percentage" style="font-size: 14px; font-weight: 600;">0%</span>
+                  </div>
+                  <div style="background: rgba(139, 92, 246, 0.2); border-radius: 8px; height: 8px; overflow: hidden;">
+                    <div id="upload-progress-bar" style="background: linear-gradient(90deg, #8B5CF6, #06B6D4); height: 100%; width: 0%; transition: width 0.3s;"></div>
+                  </div>
+                </div>
+              </div>
+              <small style="color: #94A3B8; font-size: 14px;">Upload a single HTML file or a ZIP containing your game files</small>
             </div>
 
             <div class="form-group">
@@ -541,31 +581,72 @@ class AdminApp {
         description: formData.get('description'),
         category_id: formData.get('category_id'),
         thumbnail_url: formData.get('thumbnail_url'),
-        game_url: formData.get('game_url'),
         rating: parseFloat(formData.get('rating')),
         status: formData.get('status'),
         is_featured: document.getElementById('game-featured').checked
       };
 
       const gameId = formData.get('id');
+      let finalGameId = gameId;
 
-      if (gameId) {
-        const { error } = await supabase
+      if (this.uploadMode === 'upload' && this.selectedFile) {
+        if (!gameId) {
+          const { data: newGame, error: insertError } = await supabase
+            .from('games')
+            .insert([{ ...gameData, game_url: '' }])
+            .select()
+            .single();
+
+          if (insertError) throw insertError;
+          finalGameId = newGame.id;
+        }
+
+        const uploadedUrl = await this.uploadGameFile(this.selectedFile, finalGameId);
+        gameData.game_url = uploadedUrl;
+        gameData.file_path = `${finalGameId}/${this.selectedFile.name}`;
+
+        const { error: updateError } = await supabase
           .from('games')
-          .update(gameData)
-          .eq('id', gameId);
+          .update({ game_url: uploadedUrl, file_path: gameData.file_path })
+          .eq('id', finalGameId);
 
-        if (error) throw error;
+        if (updateError) throw updateError;
+
+        const { error: fileRecordError } = await supabase
+          .from('game_files')
+          .insert([{
+            game_id: finalGameId,
+            file_path: gameData.file_path,
+            file_size: this.selectedFile.size,
+            file_type: this.selectedFile.type || 'application/octet-stream'
+          }]);
+
+        if (fileRecordError) throw fileRecordError;
+
       } else {
-        const { error } = await supabase
-          .from('games')
-          .insert([gameData]);
+        gameData.game_url = formData.get('game_url');
 
-        if (error) throw error;
+        if (gameId) {
+          const { error } = await supabase
+            .from('games')
+            .update(gameData)
+            .eq('id', gameId);
+
+          if (error) throw error;
+        } else {
+          const { error } = await supabase
+            .from('games')
+            .insert([gameData]);
+
+          if (error) throw error;
+        }
       }
 
       successDiv.textContent = 'Game saved successfully!';
       successDiv.classList.remove('hidden');
+
+      this.selectedFile = null;
+      this.uploadProgress = 0;
 
       await this.loadGames();
 
@@ -739,6 +820,52 @@ class AdminApp {
     } catch (error) {
       alert('Error deleting category: ' + error.message);
     }
+  }
+
+  setUploadMode(mode) {
+    this.uploadMode = mode;
+    this.render();
+  }
+
+  handleFileSelect(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    this.selectedFile = file;
+
+    const fileSizeInMB = (file.size / (1024 * 1024)).toFixed(2);
+
+    document.getElementById('upload-placeholder').classList.add('hidden');
+    document.getElementById('upload-info').classList.remove('hidden');
+    document.getElementById('file-name').textContent = file.name;
+    document.getElementById('file-size').textContent = `Size: ${fileSizeInMB} MB`;
+  }
+
+  async uploadGameFile(file, gameId) {
+    const fileName = `${gameId}/${file.name}`;
+
+    document.getElementById('upload-progress-container').classList.remove('hidden');
+
+    const { data, error } = await supabase.storage
+      .from('game-files')
+      .upload(fileName, file, {
+        cacheControl: '3600',
+        upsert: true,
+        onUploadProgress: (progress) => {
+          const percentage = Math.round((progress.loaded / progress.total) * 100);
+          this.uploadProgress = percentage;
+          document.getElementById('upload-percentage').textContent = `${percentage}%`;
+          document.getElementById('upload-progress-bar').style.width = `${percentage}%`;
+        }
+      });
+
+    if (error) throw error;
+
+    const { data: urlData } = supabase.storage
+      .from('game-files')
+      .getPublicUrl(fileName);
+
+    return urlData.publicUrl;
   }
 }
 
