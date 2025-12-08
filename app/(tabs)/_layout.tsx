@@ -18,7 +18,6 @@ export default function TabLayout() {
         options={{
           title: 'Home',
           href: '/',
-          tabBarStyle: { display: 'none' },
           tabBarIcon: ({ size, color }) => (
             <Home size={size} color={color} strokeWidth={2} />
           ),
