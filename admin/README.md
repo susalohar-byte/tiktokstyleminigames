@@ -104,23 +104,45 @@ Note: You cannot delete a category that has games assigned to it. Reassign or de
 
 Currently, the admin panel requires you to host HTML5 games externally and provide the URL. Here are some options:
 
-### Option 1: Use Existing Game Platforms
+### ⚠️ Important: Game Embedding Restrictions
 
-Add games from these platforms by entering their URLs:
-- https://www.crazygames.com/
-- https://poki.com/
-- https://www.miniclip.com/
-- https://www.arkadium.com/
+**Most external websites block embedding in mobile apps** for security reasons using `X-Frame-Options` or `Content-Security-Policy` headers. This means:
 
-### Option 2: Host on Your Own CDN
+- Games from platforms like CrazyGames, Poki, Miniclip typically **WON'T work** in the mobile app
+- These sites can be previewed in the admin panel but will fail to load in the app
+- Users will see a timeout message with an "Open in Browser" button as a fallback
+
+**✅ What Works:**
+- Games you host yourself on your own domain/server
+- HTML5 games from platforms that explicitly allow iframe embedding
+- Games hosted on Supabase Storage (when implemented)
+- Open-source HTML5 games from GitHub Pages (if embedding is allowed)
+
+**Recommended Approach:**
+1. Download free HTML5 games from sites like:
+   - itch.io (many games allow downloads)
+   - GitHub (open-source HTML5 games)
+   - Free game assets websites
+2. Host them on your own server or CDN
+3. Use those URLs in your game library
+
+### Option 1: Host on Your Own CDN (Recommended)
 
 1. Upload your HTML5 game files to a web server or CDN
 2. Ensure the game's `index.html` is accessible via a public URL
-3. Enter the full URL in the "Game URL" field
+3. Make sure your server allows CORS and doesn't set restrictive frame options
+4. Enter the full URL in the "Game URL" field
 
-### Option 3: Supabase Storage (Future)
+### Option 2: Use Embed-Friendly Platforms
 
-File upload to Supabase Storage will be added in a future update, allowing you to upload game ZIP files directly through the admin panel.
+Some platforms explicitly allow embedding:
+- itch.io embed URLs (check game permissions)
+- Some HTML5 game CDNs that support embedding
+- Your own GitHub Pages (if you host the games there)
+
+### Option 3: Supabase Storage (Coming Soon)
+
+File upload to Supabase Storage will be added in a future update, allowing you to upload game ZIP files directly through the admin panel. This will be the best solution as all games will be hosted on your own infrastructure.
 
 ## Game Status Types
 

@@ -16,6 +16,7 @@ export default function GamePlayerScreen() {
   const [showMenu, setShowMenu] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [debugInfo, setDebugInfo] = useState<string>('');
+  const [loadTimeout, setLoadTimeout] = useState(false);
 
   const game = games.find(g => g.id === id);
 
@@ -29,8 +30,17 @@ export default function GamePlayerScreen() {
         url: game.game_url,
         platform: Platform.OS,
       });
+
+      const timeout = setTimeout(() => {
+        if (loading) {
+          console.warn('[GamePlayer] Load timeout - game may be blocked from embedding');
+          setLoadTimeout(true);
+        }
+      }, 15000);
+
+      return () => clearTimeout(timeout);
     }
-  }, [game?.id]);
+  }, [game?.id, loading]);
 
   if (!game) {
     return (
@@ -67,7 +77,22 @@ export default function GamePlayerScreen() {
   const handleRetry = () => {
     setError(null);
     setLoading(true);
+    setLoadTimeout(false);
     console.log('[GamePlayer] Retrying game load:', game.game_url);
+  };
+
+  const handleOpenInBrowser = async () => {
+    try {
+      const supported = await Linking.canOpenURL(game.game_url);
+      if (supported) {
+        await Linking.openURL(game.game_url);
+      } else {
+        Alert.alert('Error', 'Cannot open this URL');
+      }
+    } catch (error) {
+      console.error('[GamePlayer] Error opening browser:', error);
+      Alert.alert('Error', 'Failed to open game in browser');
+    }
   };
 
   const handleShare = async () => {
@@ -143,19 +168,40 @@ export default function GamePlayerScreen() {
           <View style={styles.errorOverlay}>
             <Text style={styles.errorTitle}>Unable to Load Game</Text>
             <Text style={styles.errorMessage}>{error}</Text>
+            <Text style={styles.errorHint}>
+              This game may block embedding in apps. Try opening it in your browser instead.
+            </Text>
             <Text style={styles.debugText}>URL: {game.game_url}</Text>
             <View style={styles.errorButtons}>
+              <Pressable onPress={handleOpenInBrowser} style={styles.browserButton}>
+                <Text style={styles.browserButtonText}>Open in Browser</Text>
+              </Pressable>
               <Pressable onPress={handleRetry} style={styles.retryButton}>
                 <Text style={styles.retryButtonText}>Try Again</Text>
               </Pressable>
-              <Pressable onPress={() => router.back()} style={styles.backButton}>
-                <Text style={styles.backButtonText}>Go Back</Text>
-              </Pressable>
             </View>
+            <Pressable onPress={() => router.back()} style={styles.backButton}>
+              <Text style={styles.backButtonText}>Go Back</Text>
+            </Pressable>
           </View>
         ) : (
           <>
-            {loading && (
+            {loading && loadTimeout && (
+              <View style={styles.timeoutOverlay}>
+                <ActivityIndicator size="large" color="#8B5CF6" />
+                <Text style={styles.loadingText}>Still loading...</Text>
+                <Text style={styles.timeoutHint}>
+                  The game is taking longer than usual. It may not support embedding.
+                </Text>
+                <Pressable onPress={handleOpenInBrowser} style={styles.browserButton}>
+                  <Text style={styles.browserButtonText}>Open in Browser Instead</Text>
+                </Pressable>
+                <Pressable onPress={() => router.back()} style={styles.backButton}>
+                  <Text style={styles.backButtonText}>Go Back</Text>
+                </Pressable>
+              </View>
+            )}
+            {loading && !loadTimeout && (
               <View style={styles.loadingOverlay}>
                 <ActivityIndicator size="large" color="#8B5CF6" />
                 <Text style={styles.loadingText}>Loading {game.title}...</Text>
@@ -168,10 +214,12 @@ export default function GamePlayerScreen() {
               style={styles.webView}
               onLoadStart={(syntheticEvent) => {
                 setLoading(true);
+                setLoadTimeout(false);
                 console.log('[GamePlayer] Load started:', syntheticEvent.nativeEvent.url);
               }}
               onLoadEnd={(syntheticEvent) => {
                 setLoading(false);
+                setLoadTimeout(false);
                 console.log('[GamePlayer] Load finished:', syntheticEvent.nativeEvent.url);
               }}
               onLoadProgress={({ nativeEvent }) => {
@@ -346,5 +394,47 @@ const styles = StyleSheet.create({
     color: '#E2E8F0',
     fontSize: 16,
     fontWeight: '600',
+  },
+  timeoutOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(15, 23, 42, 0.95)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+    zIndex: 10,
+  },
+  timeoutHint: {
+    fontSize: 14,
+    color: '#94A3B8',
+    marginTop: 16,
+    marginBottom: 24,
+    textAlign: 'center',
+    lineHeight: 20,
+    paddingHorizontal: 16,
+  },
+  errorHint: {
+    fontSize: 14,
+    color: '#FBBF24',
+    marginTop: 8,
+    marginBottom: 16,
+    textAlign: 'center',
+    lineHeight: 20,
+    paddingHorizontal: 16,
+  },
+  browserButton: {
+    backgroundColor: '#06B6D4',
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  browserButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
   },
 });
