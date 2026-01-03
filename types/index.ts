@@ -13,6 +13,7 @@ export interface Game {
   category_id: string;
   thumbnail_url: string;
   game_url: string;
+  game_type?: 'native' | 'external';
   play_count: number;
   rating: number;
   status?: 'draft' | 'published' | 'archived';
@@ -21,6 +22,19 @@ export interface Game {
   created_at: string;
   updated_at: string;
   category?: Category;
+}
+
+export interface GameState {
+  status: 'idle' | 'countdown' | 'playing' | 'paused' | 'gameover';
+  score: number;
+  highScore: number;
+  timeRemaining?: number;
+  lives?: number;
+}
+
+export interface NativeGameProps {
+  onGameOver: (finalScore: number) => void;
+  onExit: () => void;
 }
 
 export interface Favorite {

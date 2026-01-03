@@ -7,6 +7,7 @@ import { useGameStore } from '@/store/gameStore';
 import { useEffect, useState } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Linking from 'expo-linking';
+import { getNativeGame } from '@/games/registry';
 
 export default function GamePlayerScreen() {
   const { id } = useLocalSearchParams();
@@ -19,28 +20,40 @@ export default function GamePlayerScreen() {
   const [loadTimeout, setLoadTimeout] = useState(false);
 
   const game = games.find(g => g.id === id);
+  const isNative = game?.game_type === 'native';
+  const NativeGameComponent = isNative && typeof game.game_url === 'string' ? getNativeGame(game.game_url) : null;
 
   useEffect(() => {
     if (game) {
       incrementPlayCount(game.id);
-      setDebugInfo(`Loading URL: ${game.game_url}`);
-      console.log('[GamePlayer] Game loaded:', {
-        id: game.id,
-        title: game.title,
-        url: game.game_url,
-        platform: Platform.OS,
-      });
 
-      const timeout = setTimeout(() => {
-        if (loading) {
-          console.warn('[GamePlayer] Load timeout - game may be blocked from embedding');
-          setLoadTimeout(true);
-        }
-      }, 15000);
+      if (isNative) {
+        console.log('[GamePlayer] Loading native game:', {
+          id: game.id,
+          title: game.title,
+          gameId: game.game_url,
+        });
+        setLoading(false);
+      } else {
+        setDebugInfo(`Loading URL: ${game.game_url}`);
+        console.log('[GamePlayer] Loading external game:', {
+          id: game.id,
+          title: game.title,
+          url: game.game_url,
+          platform: Platform.OS,
+        });
 
-      return () => clearTimeout(timeout);
+        const timeout = setTimeout(() => {
+          if (loading) {
+            console.warn('[GamePlayer] Load timeout - game may be blocked from embedding');
+            setLoadTimeout(true);
+          }
+        }, 15000);
+
+        return () => clearTimeout(timeout);
+      }
     }
-  }, [game?.id, loading]);
+  }, [game?.id, loading, isNative]);
 
   if (!game) {
     return (
@@ -164,7 +177,14 @@ export default function GamePlayerScreen() {
       )}
 
       <View style={styles.webViewContainer}>
-        {error ? (
+        {isNative && NativeGameComponent ? (
+          <NativeGameComponent
+            onGameOver={(finalScore) => {
+              console.log('[GamePlayer] Native game over, score:', finalScore);
+            }}
+            onExit={() => router.back()}
+          />
+        ) : error ? (
           <View style={styles.errorOverlay}>
             <Text style={styles.errorTitle}>Unable to Load Game</Text>
             <Text style={styles.errorMessage}>{error}</Text>
@@ -201,46 +221,48 @@ export default function GamePlayerScreen() {
                 </Pressable>
               </View>
             )}
-            {loading && !loadTimeout && (
+            {loading && !loadTimeout && !isNative && (
               <View style={styles.loadingOverlay}>
                 <ActivityIndicator size="large" color="#8B5CF6" />
                 <Text style={styles.loadingText}>Loading {game.title}...</Text>
                 {__DEV__ && <Text style={styles.debugText}>{debugInfo}</Text>}
               </View>
             )}
-            <WebView
-              key={game.id}
-              source={{ uri: game.game_url }}
-              style={styles.webView}
-              onLoadStart={(syntheticEvent) => {
-                setLoading(true);
-                setLoadTimeout(false);
-                console.log('[GamePlayer] Load started:', syntheticEvent.nativeEvent.url);
-              }}
-              onLoadEnd={(syntheticEvent) => {
-                setLoading(false);
-                setLoadTimeout(false);
-                console.log('[GamePlayer] Load finished:', syntheticEvent.nativeEvent.url);
-              }}
-              onLoadProgress={({ nativeEvent }) => {
-                console.log('[GamePlayer] Load progress:', nativeEvent.progress);
-              }}
-              onError={handleWebViewError}
-              onHttpError={handleWebViewHttpError}
-              allowsInlineMediaPlayback
-              mediaPlaybackRequiresUserAction={false}
-              javaScriptEnabled
-              domStorageEnabled
-              startInLoadingState
-              scalesPageToFit
-              originWhitelist={['*']}
-              mixedContentMode="always"
-              allowFileAccess
-              allowUniversalAccessFromFileURLs
-              onMessage={(event) => {
-                console.log('[GamePlayer] Message from WebView:', event.nativeEvent.data);
-              }}
-            />
+            {!isNative && (
+              <WebView
+                key={game.id}
+                source={{ uri: game.game_url }}
+                style={styles.webView}
+                onLoadStart={(syntheticEvent) => {
+                  setLoading(true);
+                  setLoadTimeout(false);
+                  console.log('[GamePlayer] Load started:', syntheticEvent.nativeEvent.url);
+                }}
+                onLoadEnd={(syntheticEvent) => {
+                  setLoading(false);
+                  setLoadTimeout(false);
+                  console.log('[GamePlayer] Load finished:', syntheticEvent.nativeEvent.url);
+                }}
+                onLoadProgress={({ nativeEvent }) => {
+                  console.log('[GamePlayer] Load progress:', nativeEvent.progress);
+                }}
+                onError={handleWebViewError}
+                onHttpError={handleWebViewHttpError}
+                allowsInlineMediaPlayback
+                mediaPlaybackRequiresUserAction={false}
+                javaScriptEnabled
+                domStorageEnabled
+                startInLoadingState
+                scalesPageToFit
+                originWhitelist={['*']}
+                mixedContentMode="always"
+                allowFileAccess
+                allowUniversalAccessFromFileURLs
+                onMessage={(event) => {
+                  console.log('[GamePlayer] Message from WebView:', event.nativeEvent.data);
+                }}
+              />
+            )}
           </>
         )}
       </View>
