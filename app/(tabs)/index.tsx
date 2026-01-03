@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Menu, Search } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
-const TAB_BAR_HEIGHT = 65;
+const TAB_BAR_HEIGHT = 80;
 const TOP_BAR_HEIGHT = 100;
 
 export default function HomeScreen() {
