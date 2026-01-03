@@ -7,7 +7,7 @@ import { GameCard } from '@/components/GameCard';
 import { ArrowLeft } from 'lucide-react-native';
 
 const { width } = Dimensions.get('window');
-const TAB_BAR_HEIGHT = 60;
+const TAB_BAR_HEIGHT = 65;
 
 export default function ExploreScreen() {
   const { categories, getGamesByCategory } = useGameStore();
@@ -93,7 +93,7 @@ export default function ExploreScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0F172A',
+    backgroundColor: '#000000',
   },
   titleContainer: {
     paddingHorizontal: 24,

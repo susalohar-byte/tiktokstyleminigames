@@ -1,6 +1,7 @@
 import { Tabs } from 'expo-router';
-import { Home, Compass, Heart, User } from 'lucide-react-native';
-import { StyleSheet } from 'react-native';
+import { Home, Compass, Heart, User, Plus } from 'lucide-react-native';
+import { StyleSheet, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 
 export default function TabLayout() {
   return (
@@ -8,8 +9,8 @@ export default function TabLayout() {
       screenOptions={{
         headerShown: false,
         tabBarStyle: styles.tabBar,
-        tabBarActiveTintColor: '#8B5CF6',
-        tabBarInactiveTintColor: '#64748B',
+        tabBarActiveTintColor: '#FFFFFF',
+        tabBarInactiveTintColor: 'rgba(255, 255, 255, 0.5)',
         tabBarShowLabel: true,
         tabBarLabelStyle: styles.tabLabel,
       }}>
@@ -18,18 +19,18 @@ export default function TabLayout() {
         options={{
           title: 'Home',
           href: '/',
-          tabBarIcon: ({ size, color }) => (
-            <Home size={size} color={color} strokeWidth={2} />
+          tabBarIcon: ({ size, color, focused }) => (
+            <Home size={24} color={color} strokeWidth={focused ? 2.5 : 2} fill={focused ? color : 'transparent'} />
           ),
         }}
       />
       <Tabs.Screen
         name="explore"
         options={{
-          title: 'Explore',
+          title: 'Discover',
           href: '/explore',
-          tabBarIcon: ({ size, color }) => (
-            <Compass size={size} color={color} strokeWidth={2} />
+          tabBarIcon: ({ size, color, focused }) => (
+            <Compass size={24} color={color} strokeWidth={focused ? 2.5 : 2} />
           ),
         }}
       />
@@ -38,8 +39,8 @@ export default function TabLayout() {
         options={{
           title: 'Favorites',
           href: '/favorites',
-          tabBarIcon: ({ size, color }) => (
-            <Heart size={size} color={color} strokeWidth={2} />
+          tabBarIcon: ({ size, color, focused }) => (
+            <Heart size={24} color={color} strokeWidth={focused ? 2.5 : 2} fill={focused ? color : 'transparent'} />
           ),
         }}
       />
@@ -48,8 +49,8 @@ export default function TabLayout() {
         options={{
           title: 'Profile',
           href: '/profile',
-          tabBarIcon: ({ size, color }) => (
-            <User size={size} color={color} strokeWidth={2} />
+          tabBarIcon: ({ size, color, focused }) => (
+            <User size={24} color={color} strokeWidth={focused ? 2.5 : 2} />
           ),
         }}
       />
@@ -59,15 +60,30 @@ export default function TabLayout() {
 
 const styles = StyleSheet.create({
   tabBar: {
-    backgroundColor: '#1E293B',
-    borderTopColor: '#334155',
-    borderTopWidth: 1,
-    height: 60,
-    paddingBottom: 8,
-    paddingTop: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    borderTopWidth: 0,
+    height: 65,
+    paddingBottom: 10,
+    paddingTop: 10,
+    elevation: 0,
+    shadowOpacity: 0,
   },
   tabLabel: {
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '600',
+    marginTop: 2,
+  },
+  createButton: {
+    width: 44,
+    height: 32,
+    borderRadius: 8,
+    overflow: 'hidden',
+    marginTop: -4,
+  },
+  createGradient: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

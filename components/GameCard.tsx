@@ -1,18 +1,18 @@
-import { View, Text, StyleSheet, Pressable, Image, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Image, Dimensions, Platform } from 'react-native';
 import { GameWithFavorite } from '@/types';
-import { Star, Heart, Play } from 'lucide-react-native';
+import { Heart, MessageCircle, Share2, MoreHorizontal, Play, Star, User } from 'lucide-react-native';
 import { useGameStore } from '@/store/gameStore';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
   withSequence,
-  interpolate,
 } from 'react-native-reanimated';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+import { useState } from 'react';
+import { LinearGradient } from 'expo-linear-gradient';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 interface GameCardProps {
   game: GameWithFavorite;
@@ -21,214 +21,340 @@ interface GameCardProps {
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
+function formatNumber(num: number): string {
+  if (num >= 1000000) {
+    return `${(num / 1000000).toFixed(1)}M`;
+  }
+  if (num >= 1000) {
+    return `${(num / 1000).toFixed(1)}K`;
+  }
+  return num.toString();
+}
+
 export function GameCard({ game, cardHeight }: GameCardProps) {
   const router = useRouter();
   const { toggleFavorite } = useGameStore();
-  const scale = useSharedValue(1);
+  const [showMore, setShowMore] = useState(false);
   const heartScale = useSharedValue(1);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
+  const likeScale = useSharedValue(1);
 
   const heartAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: heartScale.value }],
   }));
 
-  const handlePress = () => {
-    scale.value = withSequence(
-      withSpring(0.98, { damping: 10 }),
+  const likeAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: likeScale.value }],
+  }));
+
+  const handleLike = () => {
+    toggleFavorite(game.id);
+    likeScale.value = withSequence(
+      withSpring(1.3, { damping: 10 }),
       withSpring(1, { damping: 10 })
     );
-    router.push(`/game/${game.id}`);
   };
 
   const handleDoubleTap = () => {
-    toggleFavorite(game.id);
-    heartScale.value = withSequence(
-      withSpring(1.5, { damping: 10 }),
-      withSpring(1, { damping: 10 })
-    );
+    if (!game.is_favorite) {
+      toggleFavorite(game.id);
+      heartScale.value = withSequence(
+        withSpring(1.8, { damping: 8 }),
+        withSpring(0, { damping: 10 })
+      );
+    }
+  };
+
+  const handlePlay = () => {
+    router.push(`/game/${game.id}`);
+  };
+
+  const handleComment = () => {
+    router.push(`/game/${game.id}`);
+  };
+
+  const handleShare = () => {
+    console.log('Share game:', game.id);
   };
 
   return (
-    <AnimatedPressable
-      style={[styles.container, animatedStyle, { height: cardHeight }]}
-      onPress={handlePress}>
-      <View style={styles.card}>
-        <Image
-          source={{ uri: game.thumbnail_url }}
-          style={styles.thumbnail}
-          resizeMode="cover"
-        />
+    <Pressable
+      style={[styles.container, { height: cardHeight }]}
+      onPress={handlePlay}>
+      <Image
+        source={{ uri: game.thumbnail_url }}
+        style={styles.backgroundImage}
+        resizeMode="cover"
+      />
 
-        <LinearGradient
-          colors={['transparent', 'rgba(15, 23, 42, 0.9)', '#0F172A']}
-          style={styles.gradient}
-        />
+      <LinearGradient
+        colors={['transparent', 'rgba(0, 0, 0, 0.6)']}
+        locations={[0.5, 1]}
+        style={styles.overlay}
+      />
 
-        <View style={styles.content}>
-          <View style={styles.header}>
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>
-                {game.category?.name || 'Game'}
-              </Text>
+      {heartScale.value > 0 && (
+        <Animated.View style={[styles.doubleTapHeart, heartAnimatedStyle]} pointerEvents="none">
+          <Heart size={100} color="#FFFFFF" fill="#EF4444" strokeWidth={0} />
+        </Animated.View>
+      )}
+
+      <View style={styles.rightSidebar}>
+        <Pressable style={styles.sidebarItem}>
+          <View style={styles.avatarContainer}>
+            <View style={styles.avatar}>
+              <User size={28} color="#FFFFFF" strokeWidth={2.5} />
             </View>
-
-            <Pressable onPress={handleDoubleTap} style={styles.favoriteButton}>
-              <Animated.View style={heartAnimatedStyle}>
-                <Heart
-                  size={28}
-                  color={game.is_favorite ? '#EF4444' : '#FFFFFF'}
-                  fill={game.is_favorite ? '#EF4444' : 'transparent'}
-                  strokeWidth={2}
-                />
-              </Animated.View>
-            </Pressable>
-          </View>
-
-          <View style={styles.info}>
-            <Text style={styles.title} numberOfLines={2}>
-              {game.title}
-            </Text>
-            {game.description ? (
-              <Text style={styles.description} numberOfLines={2}>
-                {game.description}
-              </Text>
-            ) : null}
-
-            <View style={styles.stats}>
-              <View style={styles.statItem}>
-                <Star size={16} color="#FBBF24" fill="#FBBF24" />
-                <Text style={styles.statText}>{game.rating.toFixed(1)}</Text>
-              </View>
-              <View style={styles.statItem}>
-                <Play size={16} color="#06B6D4" fill="#06B6D4" />
-                <Text style={styles.statText}>
-                  {game.play_count > 1000
-                    ? `${(game.play_count / 1000).toFixed(1)}k`
-                    : game.play_count}
-                </Text>
-              </View>
+            <View style={styles.followButton}>
+              <Text style={styles.followButtonText}>+</Text>
             </View>
           </View>
+        </Pressable>
 
-          <Pressable style={styles.playButton} onPress={handlePress}>
-            <LinearGradient
-              colors={['#8B5CF6', '#06B6D4']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.playGradient}>
-              <Play size={24} color="#FFFFFF" fill="#FFFFFF" />
-              <Text style={styles.playText}>Play Now</Text>
-            </LinearGradient>
-          </Pressable>
+        <Pressable style={styles.sidebarItem} onPress={handleLike}>
+          <Animated.View style={likeAnimatedStyle}>
+            <Heart
+              size={32}
+              color="#FFFFFF"
+              fill={game.is_favorite ? '#EF4444' : 'transparent'}
+              strokeWidth={2}
+            />
+          </Animated.View>
+          <Text style={styles.sidebarCount}>{formatNumber(Math.floor(game.rating * 25000))}</Text>
+        </Pressable>
+
+        <Pressable style={styles.sidebarItem} onPress={handleComment}>
+          <MessageCircle size={32} color="#FFFFFF" strokeWidth={2} />
+          <Text style={styles.sidebarCount}>{formatNumber(Math.floor(game.play_count / 10))}</Text>
+        </Pressable>
+
+        <Pressable style={styles.sidebarItem} onPress={handleShare}>
+          <Share2 size={28} color="#FFFFFF" strokeWidth={2} />
+          <Text style={styles.sidebarCount}>Share</Text>
+        </Pressable>
+
+        <Pressable style={styles.sidebarItem}>
+          <MoreHorizontal size={28} color="#FFFFFF" strokeWidth={2} />
+        </Pressable>
+      </View>
+
+      <View style={styles.bottomInfo}>
+        <Pressable style={styles.creatorName}>
+          <Text style={styles.creatorText}>@{game.category?.name.toLowerCase().replace(/\s+/g, '') || 'creator'}</Text>
+        </Pressable>
+
+        <Text style={styles.gameTitle} numberOfLines={1}>
+          {game.title}
+        </Text>
+
+        <Pressable onPress={() => setShowMore(!showMore)}>
+          <Text style={styles.gameDescription} numberOfLines={showMore ? undefined : 2}>
+            {game.description || 'Play this amazing game now!'}
+            {!showMore && game.description && game.description.length > 80 && (
+              <Text style={styles.moreText}> ...more</Text>
+            )}
+          </Text>
+        </Pressable>
+
+        <View style={styles.statsRow}>
+          <View style={styles.statBadge}>
+            <Play size={11} color="#FFFFFF" fill="#FFFFFF" />
+            <Text style={styles.statBadgeText}>{formatNumber(game.play_count)} plays</Text>
+          </View>
+          <View style={styles.statBadge}>
+            <Star size={11} color="#FBBF24" fill="#FBBF24" />
+            <Text style={styles.statBadgeText}>{game.rating.toFixed(1)}</Text>
+          </View>
+          <View style={[styles.categoryPill, { backgroundColor: getCategoryColor(game.category?.name) }]}>
+            <Text style={styles.categoryText}>{game.category?.name || 'Game'}</Text>
+          </View>
         </View>
       </View>
-    </AnimatedPressable>
+
+      <Pressable style={styles.playButton} onPress={handlePlay}>
+        <Text style={styles.playButtonText}>PLAY</Text>
+      </Pressable>
+    </Pressable>
   );
+}
+
+function getCategoryColor(category?: string): string {
+  const colors: Record<string, string> = {
+    'Action': '#EF4444',
+    'Puzzle': '#8B5CF6',
+    'Strategy': '#06B6D4',
+    'Adventure': '#10B981',
+    'Sports': '#F59E0B',
+    'Racing': '#EC4899',
+  };
+  return colors[category || ''] || '#6366F1';
 }
 
 const styles = StyleSheet.create({
   container: {
     width,
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: '#000000',
+    position: 'relative',
   },
-  card: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 0,
-    backgroundColor: '#1E293B',
-    overflow: 'hidden',
-  },
-  thumbnail: {
+  backgroundImage: {
     width: '100%',
     height: '100%',
     position: 'absolute',
   },
-  gradient: {
+  overlay: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
     height: '50%',
   },
-  content: {
-    flex: 1,
-    padding: 20,
-    justifyContent: 'space-between',
+  doubleTapHeart: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    marginLeft: -50,
+    marginTop: -50,
+    zIndex: 100,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+  rightSidebar: {
+    position: 'absolute',
+    right: 12,
+    bottom: 120,
+    alignItems: 'center',
+    gap: 20,
+    zIndex: 10,
   },
-  badge: {
-    backgroundColor: 'rgba(139, 92, 246, 0.9)',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
+  sidebarItem: {
+    alignItems: 'center',
+    gap: 4,
   },
-  badgeText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
+  avatarContainer: {
+    position: 'relative',
+    marginBottom: 8,
   },
-  favoriteButton: {
+  avatar: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: 'rgba(30, 41, 59, 0.8)',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  info: {
-    gap: 8,
+  followButton: {
+    position: 'absolute',
+    bottom: -6,
+    left: '50%',
+    marginLeft: -10,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#EF4444',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  title: {
-    fontSize: 32,
-    fontWeight: '800',
+  followButtonText: {
     color: '#FFFFFF',
-    letterSpacing: -0.5,
-  },
-  description: {
     fontSize: 14,
-    color: '#94A3B8',
-    lineHeight: 20,
+    fontWeight: '700',
+    lineHeight: 16,
   },
-  stats: {
+  sidebarCount: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
+    textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 0.8)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
+  bottomInfo: {
+    position: 'absolute',
+    left: 16,
+    bottom: 100,
+    right: 80,
+    zIndex: 10,
+  },
+  creatorName: {
+    marginBottom: 4,
+  },
+  creatorText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+    textShadowColor: 'rgba(0, 0, 0, 0.8)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
+  gameTitle: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: '800',
+    marginBottom: 4,
+    textShadowColor: 'rgba(0, 0, 0, 0.8)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
+  gameDescription: {
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontSize: 13,
+    lineHeight: 18,
+    textShadowColor: 'rgba(0, 0, 0, 0.8)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
+  moreText: {
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontWeight: '600',
+  },
+  statsRow: {
     flexDirection: 'row',
-    gap: 16,
+    gap: 8,
     marginTop: 8,
+    alignItems: 'center',
   },
-  statItem: {
+  statBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 4,
   },
-  statText: {
-    fontSize: 14,
+  statBadgeText: {
+    color: 'rgba(255, 255, 255, 0.85)',
+    fontSize: 12,
     fontWeight: '600',
-    color: '#E2E8F0',
+    textShadowColor: 'rgba(0, 0, 0, 0.8)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
+  categoryPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  categoryText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
   },
   playButton: {
-    overflow: 'hidden',
-    borderRadius: 16,
+    position: 'absolute',
+    bottom: 100,
+    right: 16,
+    backgroundColor: '#FF006E',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 25,
+    shadowColor: '#FF006E',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 8,
   },
-  playGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 18,
-  },
-  playText: {
-    fontSize: 18,
-    fontWeight: '700',
+  playButtonText: {
     color: '#FFFFFF',
-    letterSpacing: 0.5,
+    fontSize: 16,
+    fontWeight: '800',
+    letterSpacing: 1,
   },
 });
