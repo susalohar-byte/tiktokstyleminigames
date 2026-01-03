@@ -12,17 +12,16 @@ import Animated, {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 
-const { width, height } = Dimensions.get('window');
-const TAB_BAR_HEIGHT = 60;
-const CARD_HEIGHT = height - TAB_BAR_HEIGHT;
+const { width } = Dimensions.get('window');
 
 interface GameCardProps {
   game: GameWithFavorite;
+  cardHeight: number;
 }
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-export function GameCard({ game }: GameCardProps) {
+export function GameCard({ game, cardHeight }: GameCardProps) {
   const router = useRouter();
   const { toggleFavorite } = useGameStore();
   const scale = useSharedValue(1);
@@ -54,7 +53,7 @@ export function GameCard({ game }: GameCardProps) {
 
   return (
     <AnimatedPressable
-      style={[styles.container, animatedStyle]}
+      style={[styles.container, animatedStyle, { height: cardHeight }]}
       onPress={handlePress}>
       <View style={styles.card}>
         <Image
@@ -133,7 +132,6 @@ export function GameCard({ game }: GameCardProps) {
 const styles = StyleSheet.create({
   container: {
     width,
-    height: CARD_HEIGHT,
     justifyContent: 'center',
     alignItems: 'center',
   },

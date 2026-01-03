@@ -2,16 +2,28 @@ import { View, Text, StyleSheet, FlatList, Pressable, Dimensions } from 'react-n
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useGameStore } from '@/store/gameStore';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { GameCard } from '@/components/GameCard';
 import { ArrowLeft } from 'lucide-react-native';
 
-const { width, height } = Dimensions.get('window');
-const CARD_HEIGHT = height * 0.75;
+const { width } = Dimensions.get('window');
+const TAB_BAR_HEIGHT = 60;
 
 export default function ExploreScreen() {
   const { categories, getGamesByCategory } = useGameStore();
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [dimensions, setDimensions] = useState(() => {
+    const { height } = Dimensions.get('window');
+    return { height: height - TAB_BAR_HEIGHT };
+  });
+
+  useEffect(() => {
+    const subscription = Dimensions.addEventListener('change', ({ window }) => {
+      setDimensions({ height: window.height - TAB_BAR_HEIGHT });
+    });
+
+    return () => subscription?.remove();
+  }, []);
 
   const filteredGames = selectedCategory
     ? getGamesByCategory(selectedCategory)
@@ -32,12 +44,13 @@ export default function ExploreScreen() {
         <FlatList
           data={filteredGames}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => <GameCard game={item} />}
+          renderItem={({ item }) => <GameCard game={item} cardHeight={dimensions.height} />}
           pagingEnabled
           showsVerticalScrollIndicator={false}
-          snapToInterval={CARD_HEIGHT}
+          snapToInterval={dimensions.height}
           snapToAlignment="start"
           decelerationRate="fast"
+          bounces={false}
         />
       </SafeAreaView>
     );
