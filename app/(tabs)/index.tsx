@@ -1,11 +1,11 @@
 import { View, StyleSheet, FlatList, Dimensions, ActivityIndicator } from 'react-native';
 import { useGameStore } from '@/store/gameStore';
 import { GameCard } from '@/components/GameCard';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useEffect, useRef } from 'react';
 
 const { height } = Dimensions.get('window');
-const CARD_HEIGHT = height * 0.75;
+const TAB_BAR_HEIGHT = 60;
+const CARD_HEIGHT = height - TAB_BAR_HEIGHT;
 
 export default function HomeScreen() {
   const { games, loading } = useGameStore();
@@ -26,7 +26,7 @@ export default function HomeScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <View style={styles.container}>
       <FlatList
         ref={flatListRef}
         data={games}
@@ -41,8 +41,9 @@ export default function HomeScreen() {
         initialNumToRender={2}
         maxToRenderPerBatch={3}
         windowSize={5}
+        bounces={false}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 

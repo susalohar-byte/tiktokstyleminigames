@@ -13,7 +13,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 
 const { width, height } = Dimensions.get('window');
-const CARD_HEIGHT = height * 0.75;
+const TAB_BAR_HEIGHT = 60;
+const CARD_HEIGHT = height - TAB_BAR_HEIGHT;
 
 interface GameCardProps {
   game: GameWithFavorite;
@@ -135,19 +136,13 @@ const styles = StyleSheet.create({
     height: CARD_HEIGHT,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 16,
   },
   card: {
     width: '100%',
     height: '100%',
-    borderRadius: 24,
+    borderRadius: 0,
     backgroundColor: '#1E293B',
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
-    elevation: 8,
   },
   thumbnail: {
     width: '100%',
