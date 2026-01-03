@@ -1,7 +1,6 @@
-import { View, Text, StyleSheet, Pressable, Image, Dimensions, Platform } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Image, Dimensions } from 'react-native';
 import { GameWithFavorite } from '@/types';
-import { Heart, MessageCircle, Share2, MoreHorizontal, Play, Star, User } from 'lucide-react-native';
-import { useGameStore } from '@/store/gameStore';
+import { MessageCircle, Share2, MoreHorizontal, Play, Star, User } from 'lucide-react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -33,38 +32,18 @@ function formatNumber(num: number): string {
 
 export function GameCard({ game, cardHeight }: GameCardProps) {
   const router = useRouter();
-  const { toggleFavorite } = useGameStore();
   const [showMore, setShowMore] = useState(false);
-  const heartScale = useSharedValue(1);
-  const likeScale = useSharedValue(1);
+  const playScale = useSharedValue(1);
 
-  const heartAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: heartScale.value }],
+  const playAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: playScale.value }],
   }));
-
-  const likeAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: likeScale.value }],
-  }));
-
-  const handleLike = () => {
-    toggleFavorite(game.id);
-    likeScale.value = withSequence(
-      withSpring(1.3, { damping: 10 }),
-      withSpring(1, { damping: 10 })
-    );
-  };
-
-  const handleDoubleTap = () => {
-    if (!game.is_favorite) {
-      toggleFavorite(game.id);
-      heartScale.value = withSequence(
-        withSpring(1.8, { damping: 8 }),
-        withSpring(0, { damping: 10 })
-      );
-    }
-  };
 
   const handlePlay = () => {
+    playScale.value = withSequence(
+      withSpring(1.2, { damping: 10 }),
+      withSpring(1, { damping: 10 })
+    );
     router.push(`/game/${game.id}`);
   };
 
@@ -77,9 +56,7 @@ export function GameCard({ game, cardHeight }: GameCardProps) {
   };
 
   return (
-    <Pressable
-      style={[styles.container, { height: cardHeight }]}
-      onPress={handlePlay}>
+    <View style={[styles.container, { height: cardHeight }]}>
       <Image
         source={{ uri: game.thumbnail_url }}
         style={styles.backgroundImage}
@@ -91,12 +68,6 @@ export function GameCard({ game, cardHeight }: GameCardProps) {
         locations={[0.5, 1]}
         style={styles.overlay}
       />
-
-      {heartScale.value > 0 && (
-        <Animated.View style={[styles.doubleTapHeart, heartAnimatedStyle]} pointerEvents="none">
-          <Heart size={100} color="#FFFFFF" fill="#EF4444" strokeWidth={0} />
-        </Animated.View>
-      )}
 
       <View style={styles.rightSidebar}>
         <Pressable style={styles.sidebarItem}>
@@ -110,16 +81,13 @@ export function GameCard({ game, cardHeight }: GameCardProps) {
           </View>
         </Pressable>
 
-        <Pressable style={styles.sidebarItem} onPress={handleLike}>
-          <Animated.View style={likeAnimatedStyle}>
-            <Heart
-              size={32}
-              color="#FFFFFF"
-              fill={game.is_favorite ? '#EF4444' : 'transparent'}
-              strokeWidth={2}
-            />
+        <Pressable style={styles.sidebarItem} onPress={handlePlay}>
+          <Animated.View style={playAnimatedStyle}>
+            <View style={styles.playIconCircle}>
+              <Play size={28} color="#FFFFFF" fill="#FFFFFF" strokeWidth={0} />
+            </View>
           </Animated.View>
-          <Text style={styles.sidebarCount}>{formatNumber(Math.floor(game.rating * 25000))}</Text>
+          <Text style={styles.sidebarCount}>Play</Text>
         </Pressable>
 
         <Pressable style={styles.sidebarItem} onPress={handleComment}>
@@ -173,7 +141,7 @@ export function GameCard({ game, cardHeight }: GameCardProps) {
       <Pressable style={styles.playButton} onPress={handlePlay}>
         <Text style={styles.playButtonText}>PLAY</Text>
       </Pressable>
-    </Pressable>
+    </View>
   );
 }
 
@@ -206,14 +174,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: '50%',
-  },
-  doubleTapHeart: {
-    position: 'absolute',
-    top: '50%',
-    left: '50%',
-    marginLeft: -50,
-    marginTop: -50,
-    zIndex: 100,
   },
   rightSidebar: {
     position: 'absolute',
@@ -267,6 +227,14 @@ const styles = StyleSheet.create({
     textShadowColor: 'rgba(0, 0, 0, 0.8)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
+  },
+  playIconCircle: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   bottomInfo: {
     position: 'absolute',
