@@ -64,6 +64,7 @@ export default function ExploreScreen() {
       </View>
 
       <FlatList
+        key="categories-grid"
         data={categories}
         keyExtractor={(item) => item.id}
         numColumns={2}
